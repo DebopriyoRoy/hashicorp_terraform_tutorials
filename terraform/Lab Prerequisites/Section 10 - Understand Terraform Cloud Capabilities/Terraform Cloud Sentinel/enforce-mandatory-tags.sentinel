@@ -1,0 +1,18 @@
+# Require mandatory tags on all EC2 instances being created/updated
+import "tfplan/v2" as tfplan
+
+mandatory_tags = ["Name"]  # add more if you want, e.g., "Environment", "Owner"
+
+# EC2 instances affected by this plan
+instances = tfplan.resource_changes.where(
+  type == "aws_instance" and
+  (change.actions contains "create" or change.actions contains "update")
+)
+
+# Each instance must have all mandatory tags present and non-empty
+has_required_tags = func(rc) {
+  t = rc.change.after.tags else {}
+  mandatory_tags.all(tag -> (keys(t) contains tag) and length(trim(t[tag])) > 0)
+}
+
+main = rule { instances.all(i -> has_required_tags(i)) }
